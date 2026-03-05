@@ -1,330 +1,364 @@
-import React, { useEffect, useRef } from 'react'
-import {
-  Animated,
-  Dimensions,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Modal, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { listServices, makeRequest } from '../../api/services';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 
-const { width } = Dimensions.get('window')
-const CARD_WIDTH = (width - 48) / 2
+// Interfaces matching Web
+// Interfaces matching Web
 
-const WISHES = [
-  { id: '1', emoji: '✨', title: 'Daily Magic', desc: 'Your morning ritual', tag: 'Popular', color: '#2563EB' }, // Blue
-  { id: '2', emoji: '🌙', title: 'Night Spells', desc: 'Wind down in peace', tag: 'New', color: '#2563EB' },
-  { id: '3', emoji: '🔥', title: 'Power Wish', desc: 'Amplify your intent', tag: 'Hot', color: '#EAB308' }, // Yellow
-  { id: '4', emoji: '💧', title: 'Flow State', desc: 'Enter deep focus', tag: null, color: '#2563EB' },
-  { id: '5', emoji: '🌿', title: 'Calm Aura', desc: 'Restore your energy', tag: 'Calm', color: '#2563EB' },
-  { id: '6', emoji: '⚡', title: 'Spark Mode', desc: 'Ignite creativity', tag: 'Trending', color: '#EAB308' },
-  { id: '7', emoji: '🌸', title: 'Bloom Wish', desc: 'Open your heart', tag: null, color: '#2563EB' },
-  { id: '8', emoji: '🪐', title: 'Cosmic Ask', desc: 'Think beyond limits', tag: 'New', color: '#2563EB' },
-]
+interface SubCategory {
+  id: number;
+  category: number;
+  name: string;
+  image?: string | null;
+  service_charge?: string;
+  is_active: boolean;
+}
 
-const CATEGORIES = ['All', 'Energy', 'Focus', 'Rest', 'Growth']
-
-function WishCard({ item, index }: { item: typeof WISHES[0]; index: number }) {
-  const anim = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 500,
-      delay: index * 80,
-      useNativeDriver: true,
-    }).start()
-  }, [])
-
-  const opacity = anim
-  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] })
-
-  return (
-    <Animated.View style={[{ opacity, transform: [{ translateY }] }]}>
-      <TouchableOpacity activeOpacity={0.85} style={styles.card}>
-        {/* Colored top bar */}
-        <View style={[styles.cardBar, { backgroundColor: item.color }]} />
-
-        <View style={styles.cardBody}>
-          <Text style={styles.cardEmoji}>{item.emoji}</Text>
-          {item.tag && (
-            <View style={[styles.tag, { backgroundColor: item.color + '15' }]}>
-              <Text style={[styles.tagText, { color: item.color }]}>{item.tag}</Text>
-            </View>
-          )}
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardDesc}>{item.desc}</Text>
-        </View>
-
-        <View style={styles.cardFooter}>
-          <Text style={[styles.cardCta, { color: item.color === '#2563EB' ? '#2563EB' : '#EAB308' }]}>
-            Explore →
-          </Text>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  )
+interface ServiceCategory {
+  id: number;
+  name: string;
+  description?: string;
+  icon?: string | null;
+  image?: string | null;
+  service_charge?: string;
+  is_active: boolean;
+  subcategories: SubCategory[];
 }
 
 export default function Home() {
-  const [activeCategory, setActiveCategory] = React.useState('All')
-  const headerAnim = useRef(new Animated.Value(0)).current
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Modals state
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+
+  // Form State
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [address, setAddress] = useState('');
+  const [description, setDescription] = useState('');
+  const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [location, setLocation] = useState<{lat: string, lng: string} | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    Animated.timing(headerAnim, {
-      toValue: 1,
-      duration: 700,
-      useNativeDriver: true,
-    }).start()
-  }, [])
+    fetchCategories();
+    requestLocationPermission();
+  }, []);
 
-  const headerOpacity = headerAnim
-  const headerSlide = headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] })
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const data = await listServices();
+      if (Array.isArray(data)) {
+         // Sort by ID or keep as is from web
+         setCategories(data);
+      } else if (data && data.results) {
+         setCategories(data.results);
+      } else {
+         setCategories(data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      Alert.alert('Error', 'Failed to load services');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Pair items into rows of 2
-  const rows = []
-  for (let i = 0; i < WISHES.length; i += 2) {
-    rows.push(WISHES.slice(i, i + 2))
-  }
+  const requestLocationPermission = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission to access location was denied');
+      return;
+    }
+
+    let loc = await Location.getCurrentPositionAsync({});
+    setLocation({
+      lat: String(loc.coords.latitude),
+      lng: String(loc.coords.longitude)
+    });
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: 5,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setImages([...images, ...result.assets]);
+    }
+  };
+
+  const handleCategoryPress = (category: ServiceCategory) => {
+    setSelectedCategory(category);
+    if (category.subcategories && category.subcategories.length > 0) {
+      setShowSubModal(true);
+    } else {
+      setSelectedSubCategory(null);
+      setShowBookingModal(true);
+    }
+  };
+
+  const handleSubCategoryPress = (sub: SubCategory) => {
+    setSelectedSubCategory(sub);
+    setShowSubModal(false);
+    setShowBookingModal(true);
+  };
+
+  const submitBooking = async () => {
+    if (!mobileNumber || !address || !customerName) {
+      Alert.alert('Error', 'Please fill in Name, Mobile, and Address');
+      return;
+    }
+
+    if (!location) {
+      Alert.alert('Error', 'Location is required. Please wait or enable location services.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('mobile_number', mobileNumber);
+      formData.append('customer_name', customerName);
+      formData.append('category', String(selectedCategory?.id));
+      if (selectedSubCategory) {
+        formData.append('subcategory', String(selectedSubCategory.id));
+      }
+      formData.append('service_details', JSON.stringify({ description }));
+      formData.append('address', address);
+      formData.append('latitude', location.lat);
+      formData.append('longitude', location.lng);
+
+      images.forEach((img, i) => {
+        // @ts-ignore
+        formData.append('images', {
+          uri: img.uri,
+          name: img.fileName || `image_${i}.jpg`,
+          type: img.mimeType || 'image/jpeg',
+        });
+      });
+
+      await makeRequest(formData);
+      Alert.alert('Success', 'Booking submitted successfully!');
+      
+      // Close and reset
+      setShowBookingModal(false);
+      setDescription('');
+      setImages([]);
+    } catch (error: any) {
+      console.error('Booking failed:', error);
+      let errorMessage = 'Failed to submit booking. Try again.';
+      if (error.response?.data) {
+        if (typeof error.response.data === 'object') {
+           errorMessage = Object.entries(error.response.data)
+             .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+             .join('\\n');
+        } else {
+           errorMessage = String(error.response.data);
+        }
+      }
+      Alert.alert('Booking Error', errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderCategory = ({ item }: { item: ServiceCategory }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => handleCategoryPress(item)}
+      activeOpacity={0.8}
+    >
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.cardImage} />
+      ) : (
+        <View style={[styles.cardImage, styles.placeholderImage]}>
+          <Text style={styles.placeholderText}>{item.name.charAt(0)}</Text>
+        </View>
+      )}
+      <View style={styles.cardContent}>
+        <Text style={styles.cardTitle}>{item.name}</Text>
+        {item.service_charge && (
+          <Text style={styles.cardPrice}>Service charge ₹{item.service_charge}</Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        
-       
-         
-        
-
-        {/* Search bar */}
-    
-
-        {/* Category pills */}
-    
-
-        {/* Section label */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Featured Wishes</Text>
-          <TouchableOpacity>
-            <Text style={styles.sectionLink}>See all</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#1A4FD6" />
         </View>
+      ) : (
+        <FlatList
+          data={categories.filter(c => c.is_active)}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={2}
+          contentContainerStyle={styles.listContainer}
+          renderItem={renderCategory}
+          ListFooterComponent={<View style={{ height: 120 }} />}
+        />
+      )}
 
-        {/* 2-column grid */}
-        <View style={styles.grid}>
-          {rows.map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.row}>
-              {row.map((item, colIndex) => (
-                <WishCard key={item.id} item={item} index={rowIndex * 2 + colIndex} />
-              ))}
+      {/* Subcategory Modal */}
+      <Modal visible={showSubModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Service</Text>
+              <TouchableOpacity onPress={() => setShowSubModal(false)}>
+                <Text style={styles.closeBtn}>Close</Text>
+              </TouchableOpacity>
             </View>
-          ))}
+            <FlatList
+              data={selectedCategory?.subcategories.filter(s => s.is_active)}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.subItem}
+                  onPress={() => handleSubCategoryPress(item)}
+                >
+                  {item.image ? (
+                     <Image source={{ uri: item.image }} style={styles.subImage} />
+                  ) : (
+                      <View style={[styles.subImage, styles.placeholderImage, {width: 40, height: 40}]}>
+                         <Text style={{color: '#1A4FD6'}}>{item.name.charAt(0)}</Text>
+                      </View>
+                  )}
+                  <View style={{flex: 1}}>
+                    <Text style={styles.subName}>{item.name}</Text>
+                    {item.service_charge && <Text style={styles.subPrice}>Service charge ₹{item.service_charge}</Text>}
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
         </View>
+      </Modal>
 
-        {/* Bottom spacer */}
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
-  )
+      {/* Booking Modal */}
+      <Modal visible={showBookingModal} animationType="slide" transparent={true} onRequestClose={() => setShowBookingModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '90%' }]}>
+             <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Book {selectedCategory?.name}</Text>
+                <TouchableOpacity onPress={() => setShowBookingModal(false)}>
+                  <Text style={styles.closeBtn}>Cancel</Text>
+                </TouchableOpacity>
+             </View>
+             
+             <ScrollView style={styles.formContainer} automaticallyAdjustKeyboardInsets={true}>
+                <Text style={styles.label}>Name *</Text>
+                <TextInput style={styles.input} value={customerName} onChangeText={setCustomerName} placeholder="Your name" />
+
+                <Text style={styles.label}>Mobile *</Text>
+                <TextInput style={styles.input} value={mobileNumber} onChangeText={setMobileNumber} placeholder="10-digit number" keyboardType="phone-pad" maxLength={10} />
+
+                <Text style={styles.label}>Address *</Text>
+                <TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder="Full address" multiline />
+
+                <Text style={styles.label}>Service Details</Text>
+                <TextInput 
+                  style={[styles.input, { height: 80 }]} 
+                  value={description} 
+                  onChangeText={setDescription} 
+                  placeholder="Describe your requirement..." 
+                  multiline 
+                />
+
+                <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
+                  <Text style={styles.imageBtnText}>Add Images ({images.length})</Text>
+                </TouchableOpacity>
+
+                <View style={styles.imgPreviewContainer}>
+                   {images.map((img, i) => (
+                      <Image key={i} source={{ uri: img.uri }} style={styles.previewImg} />
+                   ))}
+                </View>
+
+                {location ? (
+                  <Text style={styles.locText}>✓ Location captured automatically</Text>
+                ) : (
+                  <Text style={[styles.locText, {color: 'red'}]}>Getting location...</Text>
+                )}
+
+                <TouchableOpacity 
+                   style={[styles.submitBtn, isSubmitting && {opacity: 0.7}]} 
+                   onPress={submitBooking}
+                   disabled={isSubmitting}
+                >
+                   {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitBtnText}>Confirm Booking</Text>}
+                </TouchableOpacity>
+                <View style={{height: 40}} />
+             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF', // White background
-  },
-  scrollContent: {
-    paddingTop: 56,
-    paddingHorizontal: 16,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  greeting: {
-    color: '#2563EB', // Blue
-    fontSize: 13,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    color: '#1F2937', // Dark gray for better contrast on white
-    fontSize: 32,
-    fontWeight: '800',
-    lineHeight: 40,
-    letterSpacing: -0.8,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EAB308', // Yellow
-    borderWidth: 1.5,
-    borderColor: '#2563EB', // Blue
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEmoji: {
-    fontSize: 22,
-    color: '#FFFFFF', // White
-  },
-
-  // Search
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6', // Light gray
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderWidth: 1,
-    borderColor: '#E5E7EB', // Light gray border
-    marginBottom: 20,
-    gap: 10,
-  },
-  searchIcon: {
-    fontSize: 15,
-  },
-  searchPlaceholder: {
-    color: '#9CA3AF', // Gray
-    fontSize: 15,
-    fontWeight: '400',
-  },
-
-  // Categories
-  categoryScroll: {
-    marginBottom: 24,
-    marginHorizontal: -16,
-  },
-  categoryContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  pill: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6', // Light gray
-    borderWidth: 1,
-    borderColor: '#E5E7EB', // Light gray border
-  },
-  pillActive: {
-    backgroundColor: '#2563EB', // Blue
-    borderColor: '#2563EB',
-  },
-  pillText: {
-    color: '#6B7280', // Gray
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  pillTextActive: {
-    color: '#FFFFFF', // White
-  },
-
-  // Section
-  sectionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    color: '#1F2937', // Dark gray
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  sectionLink: {
-    color: '#2563EB', // Blue
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // Grid
-  grid: {
-    gap: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-
-  // Card
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContainer: { padding: 8, paddingBottom: 180 },
   card: {
-    width: CARD_WIDTH,
-    backgroundColor: '#FFFFFF', // White
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB', // Light gray border
+    flex: 1,
+    margin: 8,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
     overflow: 'hidden',
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  cardBar: {
-    height: 4,
-    width: '100%',
-  },
-  cardBody: {
-    padding: 16,
-    paddingBottom: 12,
-  },
-  cardEmoji: {
-    fontSize: 32,
-    marginBottom: 10,
-  },
-  tag: {
-    alignSelf: 'flex-start',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 8,
-  },
-  tagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  cardTitle: {
-    color: '#1F2937', // Dark gray
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-    letterSpacing: -0.2,
-  },
-  cardDesc: {
-    color: '#6B7280', // Gray
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '400',
-  },
-  cardFooter: {
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6', // Light gray
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  cardCta: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-})
+  cardImage: { width: '100%', height: 120, resizeMode: 'cover' },
+  placeholderImage: { backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' },
+  placeholderText: { fontSize: 32, fontWeight: 'bold', color: '#64748B' },
+  cardContent: { padding: 12 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
+  cardPrice: { fontSize: 13, color: '#10B981', marginTop: 4, fontWeight: '600' },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%', padding: 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 10, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B' },
+  closeBtn: { color: '#ef4444', fontWeight: '600', fontSize: 16 },
+  
+  subItem: { flexDirection: 'row', padding: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', alignItems: 'center' },
+  subImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
+  subName: { fontSize: 15, fontWeight: '600', color: '#334155' },
+  subPrice: { fontSize: 13, color: '#10B981', marginTop: 2 },
+
+  formContainer: { paddingVertical: 10 },
+  label: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 12, padding: 12, fontSize: 15, color: '#1E293B' },
+  
+  imageBtn: { marginTop: 16, backgroundColor: '#EFF6FF', borderWidth: 1, borderStyle: 'dashed', borderColor: '#3B82F6', padding: 16, borderRadius: 12, alignItems: 'center' },
+  imageBtnText: { color: '#3B82F6', fontWeight: '600' },
+  imgPreviewContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  previewImg: { width: 60, height: 60, borderRadius: 8 },
+  
+  locText: { marginTop: 20, fontSize: 13, color: '#10B981', textAlign: 'center' },
+  
+  submitBtn: { backgroundColor: '#1A4FD6', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16, elevation: 2 },
+  submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+});
