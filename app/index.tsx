@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import Animated, { 
@@ -11,18 +11,16 @@ import Animated, {
   Easing 
 } from 'react-native-reanimated';
 import GradientText from '../components/GradientText';
+import { useToast } from '../context/ToastContext';
 
 export default function FlashScreen() {
   const { token, isLoading: isContextLoading } = useAuth();
+  const { showToast } = useToast();
   const floatValue = useSharedValue(0);
 
   useEffect(() => {
-    // Welcome Alert
-    Alert.alert(
-      "Magic Lamp",
-      "Welcome to Magic Lamp! Your one-stop solution for all home services.",
-      [{ text: "OK" }]
-    );
+    // Welcome Toast
+    showToast("Magic Lamp", "Welcome to Magic Lamp! Your one-stop solution for all home services.", "info");
 
     // Floating Animation
     floatValue.value = withRepeat(

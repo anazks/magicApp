@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -38,8 +37,11 @@ try {
   console.warn("GoogleSignIn native module not found.");
 }
 
+import { useToast } from '../context/ToastContext';
+
 export default function LoginScreen() {
   const { setToken } = useAuth();
+  const { showToast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isOTPSent, setIsOTPSent] = useState(false);
@@ -50,34 +52,47 @@ export default function LoginScreen() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000) as any;
     }
     return () => clearTimeout(timer);
   }, [countdown]);
 
   const handleSendOTP = async () => {
-    if (!identifier.trim()) {
-      Alert.alert('Error', 'Please enter your email or mobile number.');
+    const trimmedIdentifier = identifier.trim();
+    if (!trimmedIdentifier) {
+      showToast('Error', 'Please enter your email or mobile number.', 'error');
       return;
     }
 
     setIsLoading(true);
+    console.log('Sending OTP request for identifier:', trimmedIdentifier);
     try {
-      const response = await generateOTP({ identifier: identifier.trim() });
-      if (response.status === 200) {
+      const response = await generateOTP({ identifier: trimmedIdentifier });
+      console.log('Generate OTP response data:', response.data);
+      console.log('Generate OTP response status:', response.status);
+
+      const isSuccess = response.status === 200 && (response.data?.success === true || response.data?.OTP);
+
+      if (isSuccess) {
+        console.log('OTP success condition met. Transitioning to OTP screen.');
         setIsOTPSent(true);
         setCountdown(60);
-        Alert.alert('Success', `OTP sent to ${identifier}`);
+        
+        // Log OTP for development, but don't show it in the message anymore
+        if (response.data?.OTP) {
+          console.log('OTP received in response:', response.data.OTP);
+        }
+        
+        showToast('Success', `OTP sent to ${trimmedIdentifier}`, 'success');
       } else {
-        Alert.alert('Error', response.data?.message || 'Failed to send OTP');
+        const errorMsg = response.data?.message || 'Failed to send OTP';
+        console.warn('OTP sending failed:', errorMsg);
+        showToast('Error', errorMsg, 'error');
       }
     } catch (error: any) {
-      console.error('Send OTP Error Detail:', error.response?.data);
+      console.error('Send OTP Error Detail:', error.response?.data || error.message);
       const serverMessage = error.response?.data?.message || error.response?.data?.detail;
-      Alert.alert(
-        'Email/OTP Error', 
-        serverMessage || 'Failed to send OTP. Please ensure your email/mobile is correct and try again.'
-      );
+      showToast('Error', serverMessage || 'Failed to send OTP. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -86,27 +101,31 @@ export default function LoginScreen() {
   const handleVerifyOTP = async () => {
     const otpCode = otp.join('');
     if (otpCode.length !== 6) {
-      Alert.alert('Error', 'Please enter the complete 6-digit OTP.');
+      showToast('Error', 'Please enter the complete 6-digit OTP.', 'error');
       return;
     }
 
     setIsLoading(true);
+    const trimmedIdentifier = identifier.trim();
+    console.log('Verifying OTP for identifier:', trimmedIdentifier, 'code:', otpCode);
     try {
       const response = await otpVerificationLogin({
-        identifier: identifier.trim(),
+        identifier: trimmedIdentifier,
         otp: otpCode,
       });
 
-      if (response.access) {
+      console.log('Verify OTP response:', response);
+
+      if (response && response.access) {
         await setToken(response.access);
-        Alert.alert('Success', 'Logged in successfully!');
+        showToast('Success', 'Logged in successfully!', 'success');
         router.replace('/(tabs)/Home');
       } else {
-        Alert.alert('Error', 'Invalid OTP or authentication failed.');
+        showToast('Error', response?.message || 'Invalid OTP or authentication failed.', 'error');
       }
     } catch (error: any) {
-      console.error('Verify OTP Error:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Invalid OTP. Please try again.');
+      console.error('Verify OTP Error:', error.response?.data || error.message);
+      showToast('Error', error.response?.data?.message || 'Invalid OTP. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -130,12 +149,12 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert('Not Supported', 'Google Login is only available on native devices.');
+      showToast('Not Supported', 'Google Login is only available on native devices.', 'info');
       return;
     }
 
     if (!GoogleSignin) {
-      Alert.alert('Error', 'Google Sign-In is not available in Expo Go.');
+      showToast('Error', 'Google Sign-In is not available in Expo Go.', 'error');
       return;
     }
 
@@ -157,7 +176,7 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error('Google Auth Error:', error);
       if (statusCodes && error.code !== statusCodes.SIGN_IN_CANCELLED) {
-        Alert.alert('Login Error', 'Failed to sign in with Google.');
+        showToast('Login Error', 'Failed to sign in with Google.', 'error');
       }
     } finally {
       setIsLoading(false);
@@ -194,6 +213,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Email or Mobile Number"
+                placeholderTextColor="#999"
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
