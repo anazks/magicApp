@@ -1,10 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal, ScrollView, Linking, Animated, Platform } from 'react-native';
-import { X, MapPin, Calendar, User, Phone, FileText, Filter, ArrowUpDown, ChevronRight, Clock, CheckCircle2, AlertCircle, XCircle } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
+import { Search, Filter, Calendar, MapPin, ChevronRight, X, Clock, CheckCircle2, AlertCircle, Package, User, Phone, Trash2, ArrowUpDown, ClipboardList, Type, Activity, MessageSquare, XCircle, FileText } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { serviceHistory } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import { router } from 'expo-router';
+
+// --- Helper Components ---
+const DetailRow = ({ icon: Icon, label, value, color = "#64748B" }: any) => (
+  <View style={styles.detailRow}>
+    <View style={styles.detailIconBox}>
+      <Icon size={18} color={color} />
+    </View>
+    <View style={styles.detailContent}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value || '—'}</Text>
+    </View>
+  </View>
+);
 
 interface ServiceHistoryItem {
   id: number;
@@ -239,44 +252,69 @@ export default function History() {
                    <Text style={styles.modalTitle}>Request Details</Text>
                    <Text style={styles.modalSubtitle}>Reference #{selectedItem.request_id}</Text>
                  </View>
-                 <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.closeBtnWrapper}>
-                   <X size={24} color="#64748B" />
+                 <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.modalCloseBtn}>
+                   <X size={20} color="#64748B" />
                  </TouchableOpacity>
                </View>
 
-               <ScrollView style={styles.detailsScroll}>
-                 <Text style={styles.detailLabel}>Service</Text>
-                 <Text style={styles.detailValue}>{selectedItem.category_name} {selectedItem.subcategory_name ? `- ${selectedItem.subcategory_name}` : ''}</Text>
-
-                 <Text style={styles.detailLabel}>Status</Text>
-                 <Text style={[styles.detailValue, {color: getStatusColor(selectedItem.status).text, fontWeight: 'bold'}]}>{selectedItem.status.toUpperCase()}</Text>
+               <ScrollView style={styles.detailsScroll} showsVerticalScrollIndicator={false}>
+                 <View style={styles.detailSection}>
+                   <Text style={styles.sectionTitle}>Service Information</Text>
+                   <DetailRow icon={ClipboardList} label="Category" value={selectedItem.category_name} />
+                   {selectedItem.subcategory_name && <DetailRow icon={Type} label="Subcategory" value={selectedItem.subcategory_name} />}
+                   
+                   <View style={styles.detailRow}>
+                    <View style={styles.detailIconBox}>
+                      <Activity size={18} color="#64748B" />
+                    </View>
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Current Status</Text>
+                      <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusColor(selectedItem.status).bg }]}>
+                        <Text style={[styles.statusBadgeTextLarge, { color: getStatusColor(selectedItem.status).text }]}>
+                          {selectedItem.status.toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                   </View>
+                 </View>
 
                  {selectedItem.admin_notes && (
-                    <View style={styles.adminNotesArea}>
-                      <Text style={styles.detailLabel}>Admin Notes</Text>
-                      <Text style={styles.detailValue}>{selectedItem.admin_notes}</Text>
+                    <View style={styles.notesCard}>
+                      <View style={styles.notesHeader}>
+                        <MessageSquare size={16} color="#1A4FD6" />
+                        <Text style={styles.notesTitle}>Admin Notes</Text>
+                      </View>
+                      <Text style={styles.modalNotesText}>{selectedItem.admin_notes}</Text>
                     </View>
                  )}
 
-                 <Text style={styles.detailLabel}>Customer</Text>
-                 <Text style={styles.detailValue}>{selectedItem.customer_name}</Text>
-                 <Text style={styles.detailValue}>{selectedItem.mobile_number}</Text>
-
-                 <Text style={styles.detailLabel}>Address</Text>
-                 <Text style={styles.detailValue}>{selectedItem.address}</Text>
+                 <View style={styles.detailSection}>
+                    <Text style={styles.sectionTitle}>Customer & Location</Text>
+                    <DetailRow icon={User} label="Customer Name" value={selectedItem.customer_name} />
+                    <DetailRow icon={Phone} label="Contact Number" value={selectedItem.mobile_number} />
+                    <DetailRow icon={MapPin} label="Service Address" value={selectedItem.address} />
+                 </View>
 
                  {selectedItem.description && (
-                   <>
-                     <Text style={styles.detailLabel}>Description</Text>
-                     <Text style={styles.detailValue}>{selectedItem.description}</Text>
-                   </>
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionTitle}>Problem Description</Text>
+                      <View style={styles.descriptionBox}>
+                        <Text style={styles.descriptionText}>{selectedItem.description}</Text>
+                      </View>
+                    </View>
                  )}
 
                  {(selectedItem.latitude && selectedItem.longitude) ? (
-                   <TouchableOpacity style={styles.mapBtn} onPress={() => openMap(selectedItem.latitude, selectedItem.longitude)}>
-                      <Text style={styles.mapBtnText}>Open in Google Maps</Text>
+                   <TouchableOpacity 
+                    style={styles.premiumMapBtn} 
+                    onPress={() => openMap(selectedItem.latitude, selectedItem.longitude)}
+                    activeOpacity={0.8}
+                   >
+                      <MapPin size={18} color="#FFF" />
+                      <Text style={styles.premiumMapBtnText}>Open in Google Maps</Text>
                    </TouchableOpacity>
                  ) : null}
+                 <View style={{ height: 20 }} />
                </ScrollView>
             </View>
           </View>
@@ -389,12 +427,29 @@ const styles = StyleSheet.create({
   modalHeader: { padding: 24, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '800', color: '#0F172A' },
   modalSubtitle: { fontSize: 13, color: '#64748B', fontWeight: '500', marginTop: 2 },
-  closeBtnWrapper: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  modalCloseBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
   detailsScroll: { padding: 24 },
-  detailLabel: { fontSize: 11, fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 },
-  detailValue: { fontSize: 16, color: '#1E293B', fontWeight: '600', marginBottom: 20 },
-  adminNotesArea: { backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, marginTop: 12, borderLeftWidth: 4, borderLeftColor: '#10B981' },
   
-  mapBtn: { flexDirection: 'row', backgroundColor: '#1A4FD6', padding: 18, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20, marginBottom: 40, gap: 10, shadowColor: '#1A4FD6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
-  mapBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 }
+  detailSection: { marginBottom: 32 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#1E293B', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#1A4FD6', paddingLeft: 10 },
+  
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
+  detailIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 1, borderColor: '#F1F5F9' },
+  detailContent: { flex: 1 },
+  detailLabel: { fontSize: 11, fontWeight: '600', color: '#94A3B8', marginBottom: 4 },
+  detailValue: { fontSize: 15, color: '#334155', fontWeight: '700', lineHeight: 22 },
+  
+  statusBadgeLarge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start', marginTop: 4 },
+  statusBadgeTextLarge: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+
+  notesCard: { backgroundColor: '#F0F9FF', borderRadius: 20, padding: 20, marginBottom: 32, borderWidth: 1, borderColor: '#BAE6FD' },
+  notesHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  notesTitle: { fontSize: 14, fontWeight: '800', color: '#1A4FD6' },
+  modalNotesText: { fontSize: 14, color: '#0C4A6E', lineHeight: 20, fontWeight: '500' },
+
+  descriptionBox: { backgroundColor: '#F8FAFC', padding: 18, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9' },
+  descriptionText: { fontSize: 14, color: '#475569', lineHeight: 22 },
+
+  premiumMapBtn: { flexDirection: 'row', backgroundColor: '#1A4FD6', padding: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 10, shadowColor: '#1A4FD6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 },
+  premiumMapBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.5 }
 });

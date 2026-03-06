@@ -5,7 +5,7 @@ import { listServices, makeRequest } from '../../api/services';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useToast } from '../../context/ToastContext';
-import { X, ChevronRight, Info, MapPin, User, Phone, Image as ImageIcon, Send } from 'lucide-react-native';
+import { X, ChevronRight, Info, MapPin, User, Phone, Image as ImageIcon, Send, Sparkles, Droplets, Zap } from 'lucide-react-native';
 
 // Interfaces matching Web
 // Interfaces matching Web
@@ -56,6 +56,48 @@ export default function Home() {
     fetchCategories();
     requestLocationPermission();
   }, []);
+
+  const ads = [
+    { id: 1, title: 'Professional Cleaning', subtitle: 'Sparkling results for every room', icon: Sparkles, color: '#3B82F6', secondaryColor: '#60A5FA' },
+    { id: 2, title: 'Expert Plumbing', subtitle: 'Reliable repairs & installations', icon: Droplets, color: '#1A4FD6', secondaryColor: '#3B82F6' },
+    { id: 3, title: 'Elite Electrical', subtitle: 'Safety & quality guaranteed', icon: Zap, color: '#0F172A', secondaryColor: '#1E293B' },
+  ];
+
+  const renderAdItem = ({ item }: { item: any }) => (
+    <View style={[styles.adCard, { backgroundColor: item.color }]}>
+      <View style={styles.adContentBox}>
+        <View style={[styles.adIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+           <item.icon size={32} color="#FFF" />
+        </View>
+        <View style={styles.adTextBox}>
+          <Text style={styles.adTitle}>{item.title}</Text>
+          <Text style={styles.adSubtitle}>{item.subtitle}</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const HomeFooter = () => (
+    <View style={styles.footerContainer}>
+      <Text style={styles.footerHeading}>Special Offers</Text>
+      <FlatList
+        data={ads}
+        renderItem={renderAdItem}
+        keyExtractor={(item) => item.id.toString()}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        pagingEnabled
+        snapToAlignment="center"
+        decelerationRate="fast"
+        contentContainerStyle={styles.adList}
+      />
+      <View style={styles.brandingSection}>
+        <Text style={styles.brandingTitle}>Magic Lamp</Text>
+        <Text style={styles.brandingInfo}>Premium Home Services • Built for Excellence</Text>
+      </View>
+      <View style={{ height: 40 }} />
+    </View>
+  );
 
   const fetchCategories = async () => {
     try {
@@ -220,11 +262,11 @@ export default function Home() {
           numColumns={2}
           contentContainerStyle={styles.listContainer}
           renderItem={renderCategory}
-          ListFooterComponent={<View style={{ height: 120 }} />}
+          ListFooterComponent={<HomeFooter />}
         />
       )}
 
-      <Modal visible={showSubModal} animationType="fade" transparent={true}>
+      <Modal visible={showSubModal} animationType="slide" transparent={true} onRequestClose={() => setShowSubModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -349,10 +391,10 @@ export default function Home() {
                   <View style={styles.imgPreviewContainer}>
                      {images.map((img, i) => (
                         <View key={i} style={styles.previewImgWrapper}>
-                          <Image source={{ uri: img.uri }} style={styles.previewImg} />
-                          <TouchableOpacity style={styles.removeImgBtn} onPress={() => setImages(images.filter((_, idx) => idx !== i))}>
-                             <X size={12} color="#FFF" />
-                          </TouchableOpacity>
+                           <Image source={{ uri: img.uri }} style={styles.previewImg} />
+                           <TouchableOpacity style={styles.removeImgBtn} onPress={() => setImages(images.filter((_, idx) => idx !== i))}>
+                              <X size={12} color="#FFF" />
+                           </TouchableOpacity>
                         </View>
                      ))}
                   </View>
@@ -392,7 +434,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContainer: { padding: 12, paddingBottom: 100 },
+  listContainer: { padding: 12 },
   card: {
     flex: 1,
     margin: 8,
@@ -447,5 +489,19 @@ const styles = StyleSheet.create({
   locText: { fontSize: 14, fontWeight: '600' },
   
   submitBtn: { backgroundColor: '#1A4FD6', paddingVertical: 18, borderRadius: 18, alignItems: 'center', marginTop: 24, shadowColor: '#1A4FD6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  submitBtnText: { color: '#FFF', fontSize: 17, fontWeight: '800' }
+  submitBtnText: { color: '#FFF', fontSize: 17, fontWeight: '800' },
+
+  footerContainer: { marginTop: 24, paddingBottom: 20 },
+  footerHeading: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginLeft: 16, marginBottom: 16 },
+  adList: { paddingHorizontal: 16, gap: 16 },
+  adCard: { width: 300, height: 160, borderRadius: 28, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 15, elevation: 10, marginRight: 16 },
+  adContentBox: { flex: 1, padding: 24, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  adIconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+  adTextBox: { flex: 1 },
+  adTitle: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  adSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: '600', marginTop: 4 },
+  
+  brandingSection: { alignItems: 'center', marginTop: 48, paddingHorizontal: 40 },
+  brandingTitle: { fontSize: 28, fontWeight: '900', color: '#1A4FD6', letterSpacing: -1, opacity: 0.9 },
+  brandingInfo: { fontSize: 12, color: '#94A3B8', fontWeight: 'bold', marginTop: 8, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }
 });
