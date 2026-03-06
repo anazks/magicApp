@@ -1,11 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, ActivityIndicator, TouchableOpacity, Animated, Modal } from 'react-native';
 import { User, Phone, Calendar, MapPin, Mail, LogOut, Edit3, Save, X, ChevronRight, Globe, Building } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { profileDetails, updateProfile } from '../../api/auth';
 import { router } from 'expo-router';
 import { useToast } from '../../context/ToastContext';
+
+// --- Helper Components Outside Profile to fix Keyboard Re-mounting Issue ---
+const InfoRow = ({ icon: Icon, label, value, isEditing, onChange, keyName, placeholder, keyboardType, multiline, onPress }: any) => (
+  <TouchableOpacity 
+    style={styles.infoRowContainer} 
+    activeOpacity={onPress ? 0.7 : 1} 
+    onPress={onPress}
+  >
+    <View style={styles.infoIconWrapper}>
+      <Icon size={20} color="#64748B" />
+    </View>
+    <View style={styles.infoContent}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      {isEditing ? (
+        onPress ? (
+          <Text style={[styles.infoValue, !value && { color: '#94A3B8' }]}>
+            {value || placeholder}
+          </Text>
+        ) : (
+          <TextInput
+            style={[styles.infoInput, multiline && { height: 80, textAlignVertical: 'top' }]}
+            value={value || ''}
+            onChangeText={(v) => onChange(keyName, v)}
+            placeholder={placeholder}
+            placeholderTextColor="#94A3B8"
+            keyboardType={keyboardType || 'default'}
+            multiline={multiline}
+          />
+        )
+      ) : (
+        <Text style={styles.infoValue}>{value || '—'}</Text>
+      )}
+    </View>
+  </TouchableOpacity>
+);
 
 export default function Profile() {
   const { token, logout } = useAuth();
@@ -15,6 +50,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Date Picker State
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState({ day: '', month: '', year: '' });
 
   useEffect(() => {
     if (!token) {
@@ -30,6 +69,12 @@ export default function Profile() {
       const data = await profileDetails();
       setProfile(data);
       setFormData(data);
+      
+      // Initialize tempDate for picker
+      if (data.date_of_birth) {
+        const [y, m, d] = data.date_of_birth.split('-');
+        setTempDate({ day: d, month: m, year: y });
+      }
     } catch (error) {
        console.error('Error fetching profile:', error);
     } finally {
@@ -62,14 +107,40 @@ export default function Profile() {
     }
   };
 
+  const finalizeDate = () => {
+    const { day, month, year } = tempDate;
+    if (day && month && year) {
+      const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      handleChange('date_of_birth', formattedDate);
+      setShowDatePicker(false);
+    }
+  };
+
   if (!token) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.guestText}>Please login to view your profile.</Text>
-        <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
-          <Text style={styles.loginBtnText}>Login Now</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.bgCircle1} />
+        <View style={styles.bgCircle2} />
+        
+        <View style={styles.center}>
+          <View style={styles.guestIconContainer}>
+            <User size={48} color="#1A4FD6" />
+          </View>
+          <Text style={styles.guestTitle}>Your Profile</Text>
+          <Text style={styles.guestSubtitle}>
+            Login to manage your profile, save your addresses, 
+            and enjoy a personalized experience with Magic Lamp.
+          </Text>
+          
+          <TouchableOpacity 
+            style={styles.guestLoginBtn} 
+            onPress={() => router.push('/login')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.guestLoginBtnText}>Login Now</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -82,30 +153,6 @@ export default function Profile() {
   }
 
   const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'User';
-
-  const InfoRow = ({ icon: Icon, label, value, isEditing, onChange, keyName, placeholder, keyboardType, multiline }: any) => (
-    <View style={styles.infoRowContainer}>
-      <View style={styles.infoIconWrapper}>
-        <Icon size={20} color="#64748B" />
-      </View>
-      <View style={styles.infoContent}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        {isEditing ? (
-          <TextInput
-            style={[styles.infoInput, multiline && { height: 80, textAlignVertical: 'top' }]}
-            value={value || ''}
-            onChangeText={(v) => onChange(keyName, v)}
-            placeholder={placeholder}
-            placeholderTextColor="#94A3B8"
-            keyboardType={keyboardType || 'default'}
-            multiline={multiline}
-          />
-        ) : (
-          <Text style={styles.infoValue}>{value || '—'}</Text>
-        )}
-      </View>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -153,7 +200,16 @@ export default function Profile() {
           <Text style={styles.cardHeader}>Personal Information</Text>
           <InfoRow icon={User} label="First Name" value={isEditing ? formData.first_name : profile.first_name} isEditing={isEditing} onChange={handleChange} keyName="first_name" placeholder="Enter first name" />
           <InfoRow icon={User} label="Last Name" value={isEditing ? formData.last_name : profile.last_name} isEditing={isEditing} onChange={handleChange} keyName="last_name" placeholder="Enter last name" />
-          <InfoRow icon={Calendar} label="Date of Birth" value={isEditing ? formData.date_of_birth : profile.date_of_birth} isEditing={isEditing} onChange={handleChange} keyName="date_of_birth" placeholder="YYYY-MM-DD" />
+          <InfoRow 
+            icon={Calendar} 
+            label="Date of Birth" 
+            value={isEditing ? formData.date_of_birth : profile.date_of_birth} 
+            isEditing={isEditing} 
+            onChange={handleChange} 
+            keyName="date_of_birth" 
+            placeholder="Select data" 
+            onPress={isEditing ? () => setShowDatePicker(true) : undefined}
+          />
         </View>
 
         <View style={styles.card}>
@@ -172,14 +228,129 @@ export default function Profile() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Custom Date Picker Modal */}
+      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.datePickerContent}>
+            <View style={styles.datePickerHeader}>
+              <Text style={styles.datePickerTitle}>Set Date of Birth</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <X size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.datePickerGrid}>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.pickerLabel}>Day</Text>
+                <TextInput
+                  style={styles.pickerInput}
+                  placeholder="DD"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={tempDate.day}
+                  onChangeText={(v) => setTempDate(prev => ({ ...prev, day: v }))}
+                />
+              </View>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.pickerLabel}>Month</Text>
+                <TextInput
+                  style={styles.pickerInput}
+                  placeholder="MM"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={tempDate.month}
+                  onChangeText={(v) => setTempDate(prev => ({ ...prev, month: v }))}
+                />
+              </View>
+              <View style={styles.datePickerColumn}>
+                <Text style={styles.pickerLabel}>Year</Text>
+                <TextInput
+                  style={styles.pickerInput}
+                  placeholder="YYYY"
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  value={tempDate.year}
+                  onChangeText={(v) => setTempDate(prev => ({ ...prev, year: v }))}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.confirmBtn} onPress={finalizeDate}>
+              <Text style={styles.confirmBtnText}>Confirm Date</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  guestText: { fontSize: 16, color: '#475569', marginBottom: 20, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  bgCircle1: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#EFF6FF',
+    opacity: 0.8,
+  },
+  bgCircle2: {
+    position: 'absolute',
+    bottom: -50,
+    left: -100,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: '#F8FAFC',
+    opacity: 0.5,
+  },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, zIndex: 1 },
+  guestIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#1A4FD6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  guestTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  guestSubtitle: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 22,
+    marginBottom: 40,
+    fontWeight: '500',
+  },
+  guestLoginBtn: {
+    backgroundColor: '#1A4FD6',
+    paddingHorizontal: 48,
+    paddingVertical: 18,
+    borderRadius: 20,
+    shadowColor: '#1A4FD6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  guestLoginBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.5 },
   loginBtn: { backgroundColor: '#1A4FD6', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 12 },
   loginBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   scroll: { padding: 20 },
@@ -212,4 +383,16 @@ const styles = StyleSheet.create({
 
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 10, marginTop: 10, marginBottom: 30 },
   logoutBtnText: { color: '#EF4444', fontWeight: '700', fontSize: 16 },
+
+  // Date Picker Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  datePickerContent: { backgroundColor: '#FFF', borderRadius: 24, width: '100%', padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.2, shadowRadius: 40, elevation: 10 },
+  datePickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  datePickerTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  datePickerGrid: { flexDirection: 'row', gap: 12, marginBottom: 32 },
+  datePickerColumn: { flex: 1 },
+  pickerLabel: { fontSize: 12, fontWeight: '700', color: '#94A3B8', marginBottom: 8, textTransform: 'uppercase' },
+  pickerInput: { height: 56, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0', textAlign: 'center', fontSize: 16, fontWeight: '700', color: '#0F172A' },
+  confirmBtn: { backgroundColor: '#1A4FD6', height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#1A4FD6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  confirmBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 }
 });

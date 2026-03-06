@@ -106,12 +106,29 @@ export default function History() {
 
   if (!token) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.guestText}>Please login to view your service history.</Text>
-        <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
-          <Text style={styles.loginBtnText}>Login Now</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.bgCircle1} />
+        <View style={styles.bgCircle2} />
+        
+        <View style={styles.center}>
+          <View style={styles.guestIconContainer}>
+            <FileText size={48} color="#1A4FD6" />
+          </View>
+          <Text style={styles.guestTitle}>Track Your Requests</Text>
+          <Text style={styles.guestSubtitle}>
+            Login to view your service history, track active requests, 
+            and manage your home maintenance effortlessly.
+          </Text>
+          
+          <TouchableOpacity 
+            style={styles.guestLoginBtn} 
+            onPress={() => router.push('/login')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.guestLoginBtnText}>Login Now</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -270,9 +287,70 @@ export default function History() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  guestText: { fontSize: 16, color: '#475569', marginBottom: 20, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  bgCircle1: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#EFF6FF',
+    opacity: 0.8,
+  },
+  bgCircle2: {
+    position: 'absolute',
+    bottom: -50,
+    left: -100,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: '#F8FAFC',
+    opacity: 0.5,
+  },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, zIndex: 1 },
+  guestIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#1A4FD6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  guestTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  guestSubtitle: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 22,
+    marginBottom: 40,
+    fontWeight: '500',
+  },
+  guestLoginBtn: {
+    backgroundColor: '#1A4FD6',
+    paddingHorizontal: 48,
+    paddingVertical: 18,
+    borderRadius: 20,
+    shadowColor: '#1A4FD6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  guestLoginBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.5 },
   emptyIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: '700', color: '#475569', marginBottom: 8 },
   emptySubText: { fontSize: 14, color: '#94A3B8', textAlign: 'center' },
