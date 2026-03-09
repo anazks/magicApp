@@ -33,3 +33,34 @@ export const makeRequest = async (requestData: any) => {
         throw error
     }
 }
+export const updateServiceRequest = async (id: number | string, data: FormData) => {
+    try {
+        const response = await Axios.patch(`/services/request/${id}/edit/`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('Error updating service request:', error.response?.data || error);
+        throw error;
+    }
+}
+
+export const deleteServiceMedia = async (mediaId: number | string) => {
+    try {
+        const response = await Axios.delete(`/services/request/media/${mediaId}/delete/`);
+        return response.data;
+    } catch (error: any) {
+        console.error('Error deleting service media:', error.response?.data || error);
+        throw error;
+    }
+}
+
+export const cancelServiceRequest = async (id: number | string) => {
+    try {
+        const response = await Axios.post(`/services/request/${id}/cancel/`);
+        return response.data;
+    } catch (error: any) {
+        console.error('Error cancelling service request:', error.response?.data || error);
+        throw error;
+    }
+}

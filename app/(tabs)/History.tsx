@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Alert, Linking, Platform, Image } from 'react-native';
 import { Search, Filter, Calendar, MapPin, ChevronRight, X, Clock, CheckCircle2, AlertCircle, Package, User, Phone, Trash2, ArrowUpDown, ClipboardList, Type, Activity, MessageSquare, XCircle, FileText } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { serviceHistory } from '../../api/services';
+import { serviceHistory, cancelServiceRequest } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
-import { router } from 'expo-router';
+import { useToast } from '../../context/ToastContext';
+import { router, useFocusEffect } from 'expo-router';
+import EditServiceRequest from '../../components/EditServiceRequest';
+import ConfirmationModal from '../../components/ConfirmationModal';
+
+const API_BASE_URL = 'https://magiclaptest.pythonanywhere.com';
 
 // --- Helper Components ---
 const DetailRow = ({ icon: Icon, label, value, color = "#64748B" }: any) => (
@@ -34,15 +39,20 @@ interface ServiceHistoryItem {
   customer_name: string;
   category_icon?: string | null;
   admin_notes?: string;
+  media_files?: any[];
 }
 
 export default function History() {
   const { token } = useAuth();
+  const { showToast } = useToast();
   const [history, setHistory] = useState<ServiceHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ServiceHistoryItem | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('All');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [cancelId, setCancelId] = useState<number | null>(null);
 
   const tabs = ['All', 'Pending', 'Accepted', 'Completed', 'Cancelled'];
 
@@ -65,6 +75,7 @@ export default function History() {
         customer_name: item.customer_name,
         category_icon: item.category_icon,
         admin_notes: item.admin_notes,
+        media_files: item.media_files,
       }));
       setHistory(transformed);
     } catch (error) {
@@ -81,6 +92,14 @@ export default function History() {
     }
     fetchHistory();
   }, [token]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (token) {
+        fetchHistory();
+      }
+    }, [token])
+  );
 
   const filteredAndSortedHistory = useMemo(() => {
     let result = [...history];
@@ -145,6 +164,30 @@ export default function History() {
     );
   }
 
+  const handleCancel = async (id: number) => {
+    console.log('handleCancel triggered for id:', id);
+    setCancelId(id);
+    setShowConfirmModal(true);
+  };
+
+  const confirmCancel = async () => {
+    console.log('confirmCancel triggered for cancelId:', cancelId);
+    if (!cancelId) return;
+    try {
+      setLoading(true);
+      setShowConfirmModal(false);
+      await cancelServiceRequest(cancelId);
+      showToast('Success', 'Request cancelled successfully', 'success');
+      setSelectedItem(null);
+      fetchHistory();
+    } catch (error) {
+      showToast('Error', 'Failed to cancel request', 'error');
+    } finally {
+      setLoading(false);
+      setCancelId(null);
+    }
+  };
+
   const renderItem = ({ item }: { item: ServiceHistoryItem }) => {
     const colors = getStatusColor(item.status);
     
@@ -167,6 +210,12 @@ export default function History() {
               </View>
             </View>
             {item.subcategory_name && <Text style={styles.subtitle} numberOfLines={1}>{item.subcategory_name}</Text>}
+            {item.status.toLowerCase() === 'pending' && (
+              <View style={styles.editableBadge}>
+                <FileText size={10} color="#16A34A" />
+                <Text style={styles.editableBadgeText}>Editable or Cancelable</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -242,81 +291,174 @@ export default function History() {
         />
       )}
 
-      {/* Details Modal */}
-      <Modal visible={!!selectedItem} animationType="slide" transparent={true} onRequestClose={() => setSelectedItem(null)}>
+      {/* Modal for Details and Editing */}
+      <Modal 
+        visible={!!selectedItem} 
+        animationType="slide" 
+        transparent={true} 
+        onRequestClose={() => {
+          if (isEditing) {
+            setIsEditing(false);
+          } else {
+            setSelectedItem(null);
+          }
+        }}
+      >
         {selectedItem && (
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-               <View style={styles.modalHeader}>
-                 <View>
-                   <Text style={styles.modalTitle}>Request Details</Text>
-                   <Text style={styles.modalSubtitle}>Reference #{selectedItem.request_id}</Text>
-                 </View>
-                 <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.modalCloseBtn}>
-                   <X size={20} color="#64748B" />
-                 </TouchableOpacity>
-               </View>
-
-               <ScrollView style={styles.detailsScroll} showsVerticalScrollIndicator={false}>
-                 <View style={styles.detailSection}>
-                   <Text style={styles.sectionTitle}>Service Information</Text>
-                   <DetailRow icon={ClipboardList} label="Category" value={selectedItem.category_name} />
-                   {selectedItem.subcategory_name && <DetailRow icon={Type} label="Subcategory" value={selectedItem.subcategory_name} />}
-                   
-                   <View style={styles.detailRow}>
-                    <View style={styles.detailIconBox}>
-                      <Activity size={18} color="#64748B" />
+            <View style={[styles.modalContent, isEditing ? { height: '95%', maxHeight: '95%' } : { maxHeight: '90%' }]}>
+              {isEditing ? (
+                <EditServiceRequest 
+                  item={selectedItem} 
+                  onClose={() => setIsEditing(false)} 
+                  onUpdate={() => {
+                    fetchHistory();
+                    setSelectedItem(null);
+                    setIsEditing(false);
+                  }} 
+                />
+              ) : (
+                <>
+                  <View style={styles.modalHeader}>
+                    <View>
+                      <Text style={styles.modalTitle}>Request Details</Text>
+                      <Text style={styles.modalSubtitle}>Reference #{selectedItem.request_id}</Text>
                     </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Current Status</Text>
-                      <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusColor(selectedItem.status).bg }]}>
-                        <Text style={[styles.statusBadgeTextLarge, { color: getStatusColor(selectedItem.status).text }]}>
-                          {selectedItem.status.toUpperCase()}
-                        </Text>
-                      </View>
-                    </View>
-                   </View>
-                 </View>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        setSelectedItem(null);
+                        setIsEditing(false);
+                      }} 
+                      style={styles.modalCloseBtn}
+                    >
+                      <X size={20} color="#64748B" />
+                    </TouchableOpacity>
+                  </View>
 
-                 {selectedItem.admin_notes && (
-                    <View style={styles.notesCard}>
-                      <View style={styles.notesHeader}>
-                        <MessageSquare size={16} color="#1A4FD6" />
-                        <Text style={styles.notesTitle}>Admin Notes</Text>
-                      </View>
-                      <Text style={styles.modalNotesText}>{selectedItem.admin_notes}</Text>
-                    </View>
-                 )}
-
-                 <View style={styles.detailSection}>
-                    <Text style={styles.sectionTitle}>Customer & Location</Text>
-                    <DetailRow icon={User} label="Customer Name" value={selectedItem.customer_name} />
-                    <DetailRow icon={Phone} label="Contact Number" value={selectedItem.mobile_number} />
-                    <DetailRow icon={MapPin} label="Service Address" value={selectedItem.address} />
-                 </View>
-
-                 {selectedItem.description && (
+                  <ScrollView style={styles.detailsScroll} showsVerticalScrollIndicator={false}>
                     <View style={styles.detailSection}>
-                      <Text style={styles.sectionTitle}>Problem Description</Text>
-                      <View style={styles.descriptionBox}>
-                        <Text style={styles.descriptionText}>{selectedItem.description}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <Text style={styles.sectionTitle}>Service Information</Text>
+                        {selectedItem.status.toLowerCase() === 'pending' && (
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TouchableOpacity 
+                              style={styles.editButtonSmall} 
+                              onPress={() => {
+                                console.log('Edit button pressed. Current isEditing:', isEditing);
+                                setIsEditing(true);
+                              }}
+                            >
+                              <FileText size={14} color="#1A4FD6" />
+                              <Text style={styles.editButtonText}>Edit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={styles.cancelButtonSmall} 
+                              onPress={() => handleCancel(selectedItem.id)}
+                            >
+                              <XCircle size={14} color="#DC2626" />
+                              <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                      <DetailRow icon={ClipboardList} label="Category" value={selectedItem.category_name} />
+                      {selectedItem.subcategory_name && <DetailRow icon={Type} label="Subcategory" value={selectedItem.subcategory_name} />}
+                      
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailIconBox}>
+                          <Activity size={18} color="#64748B" />
+                        </View>
+                        <View style={styles.detailContent}>
+                          <Text style={styles.detailLabel}>Current Status</Text>
+                          <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusColor(selectedItem.status).bg }]}>
+                            <Text style={[styles.statusBadgeTextLarge, { color: getStatusColor(selectedItem.status).text }]}>
+                              {selectedItem.status.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
-                 )}
 
-                 {(selectedItem.latitude && selectedItem.longitude) ? (
-                   <TouchableOpacity 
-                    style={styles.premiumMapBtn} 
-                    onPress={() => openMap(selectedItem.latitude, selectedItem.longitude)}
-                    activeOpacity={0.8}
-                   >
+                    {selectedItem.admin_notes && (
+                      <View style={styles.notesCard}>
+                        <View style={styles.notesHeader}>
+                          <MessageSquare size={16} color="#1A4FD6" />
+                          <Text style={styles.notesTitle}>Admin Notes</Text>
+                        </View>
+                        <Text style={styles.modalNotesText}>{selectedItem.admin_notes}</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionTitle}>Customer & Location</Text>
+                      <DetailRow icon={User} label="Customer Name" value={selectedItem.customer_name} />
+                      <DetailRow icon={Phone} label="Contact Number" value={selectedItem.mobile_number} />
+                      <DetailRow icon={MapPin} label="Service Address" value={selectedItem.address} />
+                    </View>
+
+                    {selectedItem.description && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.sectionTitle}>Problem Description</Text>
+                        <View style={styles.descriptionBox}>
+                          <Text style={styles.descriptionText}>{selectedItem.description}</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {selectedItem.media_files && selectedItem.media_files.length > 0 && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.sectionTitle}>Uploads</Text>
+                      <View style={styles.mediaGrid}>
+                        {selectedItem.media_files.map((media: any) => {
+                          const fileUrl = media.file.startsWith('http') 
+                            ? media.file 
+                            : `${API_BASE_URL}${media.file.startsWith('/') ? '' : '/'}${media.file}`;
+                          return (
+                            <View key={media.id} style={styles.mediaItemSmall}>
+                              {media.file_type === 'image' ? (
+                                <Image 
+                                  source={{ uri: fileUrl }} 
+                                  style={styles.mediaThumb} 
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <View style={styles.audioPlaceholder}>
+                                  <Activity size={18} color="#2563EB" />
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {(selectedItem.latitude && selectedItem.longitude) ? (
+                    <TouchableOpacity 
+                      style={styles.premiumMapBtn} 
+                      onPress={() => openMap(selectedItem.latitude, selectedItem.longitude)}
+                      activeOpacity={0.8}
+                    >
                       <MapPin size={18} color="#FFF" />
                       <Text style={styles.premiumMapBtnText}>Open in Google Maps</Text>
-                   </TouchableOpacity>
-                 ) : null}
-                 <View style={{ height: 20 }} />
-               </ScrollView>
+                    </TouchableOpacity>
+                  ) : null}
+                    <View style={{ height: 20 }} />
+                  </ScrollView>
+                </>
+              )}
             </View>
+
+            <ConfirmationModal
+              visible={showConfirmModal}
+              title="Cancel Request"
+              message="Are you sure you want to cancel this service request? This action cannot be undone."
+              confirmLabel="Yes, Cancel"
+              cancelLabel="No, Keep It"
+              onConfirm={confirmCancel}
+              onCancel={() => setShowConfirmModal(false)}
+              type="danger"
+            />
           </View>
         )}
       </Modal>
@@ -451,5 +593,15 @@ const styles = StyleSheet.create({
   descriptionText: { fontSize: 14, color: '#475569', lineHeight: 22 },
 
   premiumMapBtn: { flexDirection: 'row', backgroundColor: '#1A4FD6', padding: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 10, shadowColor: '#1A4FD6', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 },
-  premiumMapBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.5 }
+  premiumMapBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.5 },
+  editButtonSmall: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4 },
+  editButtonText: { fontSize: 12, fontWeight: '700', color: '#1A4FD6' },
+  cancelButtonSmall: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4, marginLeft: 8 },
+  cancelButtonText: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
+  editableBadge: { alignSelf: 'flex-start', backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 6, borderWidth: 1, borderColor: '#DCFCE7', flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editableBadgeText: { fontSize: 10, fontWeight: '700', color: '#16A34A' },
+  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
+  mediaItemSmall: { width: 60, height: 60, borderRadius: 12, overflow: 'hidden', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#F1F5F9' },
+  mediaThumb: { width: '100%', height: '100%' },
+  audioPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#E0E7FF' },
 });
