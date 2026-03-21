@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   removeNewBtn: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
   addBtn: { width: 75, height: 75, borderRadius: 12, borderStyle: 'dashed', borderWidth: 2, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', gap: 4 },
   addBtnText: { fontSize: 10, fontWeight: '700', color: '#94A3B8' },
-  footer: { padding: 24, borderTopWidth: 1, borderTopColor: '#F1F5F9', backgroundColor: '#F8FAFC', flexDirection: 'row', gap: 12 },
+  footer: { padding: 24, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#F1F5F9', backgroundColor: '#F8FAFC', flexDirection: 'row', gap: 12 },
   cancelBtn: { flex: 1, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFF', alignItems: 'center' },
   cancelBtnText: { color: '#64748B', fontWeight: '800', fontSize: 15 },
   saveBtn: { flex: 2, backgroundColor: '#1A4FD6', padding: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },

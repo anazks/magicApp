@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   notesText: { fontSize: 12, color: '#475569', fontStyle: 'italic' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxHeight: '90%', overflow: 'hidden' },
+  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, width: '100%', maxHeight: '90%', overflow: 'hidden', paddingBottom: 40 },
   modalHeader: { padding: 24, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '800', color: '#0F172A' },
   modalSubtitle: { fontSize: 13, color: '#64748B', fontWeight: '500', marginTop: 2 },

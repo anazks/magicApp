@@ -20,21 +20,29 @@ import { Mail, Phone, ChevronLeft, ArrowRight } from 'lucide-react-native';
 let GoogleSignin: any = null;
 let statusCodes: any = null;
 
+// Client IDs from Google Cloud Console
+// webClientId  → the "Web" OAuth 2.0 client ID  (used by Django backend to verify ID tokens)
+// iosClientId  → the "iOS" OAuth 2.0 client ID   (required for iOS sign-in)
+// Android      → relies on SHA-1 fingerprint registered in Google Cloud Console, no explicit ID needed here
+const GOOGLE_WEB_CLIENT_ID = '752728323430-rig6042403v1vriivoh0hmffsl3nv4bs.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com'; // ← replace with your iOS client ID from Google Cloud Console
+const GOOGLE_ANDROID_CLIENT_ID = '752728323430-907p1i7bqan7vd92ba7ih5jlvkoh825i.apps.googleusercontent.com'; // Android client ID
+
 try {
   if (Platform.OS !== 'web') {
     const GoogleSignInModule = require('@react-native-google-signin/google-signin');
     GoogleSignin = GoogleSignInModule.GoogleSignin;
     statusCodes = GoogleSignInModule.statusCodes;
-    
+
     GoogleSignin.configure({
-      webClientId: '752728323430-rig6042403v1vriivoh0hmffsl3nv4bs.apps.googleusercontent.com',
-      offlineAccess: true,
+      webClientId: GOOGLE_WEB_CLIENT_ID, // Must be the Web client ID so Django can verify the token
+      iosClientId: GOOGLE_IOS_CLIENT_ID, // iOS-specific client ID
+      offlineAccess: true,               // Required to get serverAuthCode for backend
       scopes: ['profile', 'email'],
-      iosClientId: '752728323430-rig6042403v1vriivoh0hmffsl3nv4bs.apps.googleusercontent.com',
     });
   }
 } catch (e) {
-  console.warn("GoogleSignIn native module not found.");
+  console.warn('GoogleSignIn native module not found.');
 }
 
 import { useToast } from '../context/ToastContext';
