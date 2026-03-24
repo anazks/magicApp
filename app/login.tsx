@@ -25,7 +25,7 @@ let statusCodes: any = null;
 // iosClientId  → the "iOS" OAuth 2.0 client ID   (required for iOS sign-in)
 // Android      → relies on SHA-1 fingerprint registered in Google Cloud Console, no explicit ID needed here
 const GOOGLE_WEB_CLIENT_ID = '752728323430-rig6042403v1vriivoh0hmffsl3nv4bs.apps.googleusercontent.com';
-const GOOGLE_IOS_CLIENT_ID = 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com'; // ← replace with your iOS client ID from Google Cloud Console
+const GOOGLE_IOS_CLIENT_ID = '752728323430-fai7136i4bd2f1mhul64hqv7r0o5djj1.apps.googleusercontent.com';
 const GOOGLE_ANDROID_CLIENT_ID = '752728323430-907p1i7bqan7vd92ba7ih5jlvkoh825i.apps.googleusercontent.com'; // Android client ID
 
 try {
