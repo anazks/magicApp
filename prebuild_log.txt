@@ -1,0 +1,35 @@
+- Creating native directory (./android)
+✔ Created native directory | reusing /android
+- Updating package.json
+✔ Updated package.json | no changes
+- Running prebuild
+Error: ENOENT: no such file or directory, open '/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/google-services.json'
+    at async open (node:internal/fs/promises:636:25)
+    at async Object.readFile (node:internal/fs/promises:1273:14)
+    at async copyFilePathToPathAsync (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/utils/fs.js:25:19)
+    at async setGoogleServicesFile (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/android/GoogleServices.js:97:5)
+    at async /Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/android/GoogleServices.js:81:5
+    at async action (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:199:23)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async action (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/createBaseMod.js:60:21) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/google-services.json'
+}
+- Running prebuild
+✖ Prebuild failed
+Error: [android.dangerous]: withAndroidDangerousBaseMod: Cannot copy google-services.json from /Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/google-services.json to /Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/android/app/google-services.json. Ensure the source and destination paths exist.
+Error: [android.dangerous]: withAndroidDangerousBaseMod: Cannot copy google-services.json from /Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/google-services.json to /Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/android/app/google-services.json. Ensure the source and destination paths exist.
+    at setGoogleServicesFile (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/android/GoogleServices.js:100:11)
+    at async /Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/android/GoogleServices.js:81:5
+    at async action (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:199:23)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async action (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/createBaseMod.js:60:21)
+    at async interceptingMod (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/withMod.js:104:21)
+    at async evalModsAsync (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/mod-compiler.js:206:25)
+    at async compileModsAsync (/Users/pramodgopinath/Desktop/Projects /MagicLampMobile/magicApp/node_modules/@expo/config-plugins/build/plugins/mod-compiler.js:123:10)

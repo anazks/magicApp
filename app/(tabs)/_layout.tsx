@@ -3,6 +3,7 @@ import { withLayoutContext } from 'expo-router';
 import { ParamListBase, TabNavigationState, useNavigationState } from '@react-navigation/native';
 import React from 'react';
 import { Platform, Image, View, StyleSheet, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Clock, User } from 'lucide-react-native';
 import GradientText from '../../components/GradientText';
 
@@ -47,6 +48,8 @@ const TabHeader = () => {
 };
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
       <TabHeader />
@@ -61,8 +64,8 @@ export default function TabLayout() {
           tabBarIndicatorStyle: { height: 0 },
           tabBarStyle: {
             backgroundColor: '#FFF',
-            height: Platform.OS === 'ios' ? 88 : 65,
-            paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+            height: (Platform.OS === 'ios' ? 55 : 65) + Math.max(insets.bottom, 10),
+            paddingBottom: Math.max(insets.bottom, 10),
             borderTopWidth: 1,
             borderTopColor: '#F1F5F9',
             elevation: 10,
